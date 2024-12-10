@@ -54,7 +54,7 @@ fn main_loop(
                 let _ = match handle_request(req)
                 {
                     Ok(res) => connection.sender.send(Message::Response(res)),
-                    Err(res) => connection.sender.send(Message::Response(res)),
+                    Err(err) => connection.sender.send(Message::Response(err)),
                 };
             }
             Message::Response(resp) => {
@@ -76,7 +76,11 @@ fn handle_request(request: Request) -> Result<Response, Response>
     let response = match SupportedMethods::try_from(request){
         Ok(SupportedMethods::Hover(params)) => handle_hover(params),
         Ok(SupportedMethods::GotoDefinition(params)) => handle_gotodefinition(params),
-        _ => panic!("W/e")
+        Err(_) => Err(ResponseError {
+            code: 1,
+            message: String::from("hejsan"),
+            data: Some(serde_json::Value::String(String::from("hello")))
+        })
     };
 
     match response
@@ -87,11 +91,12 @@ fn handle_request(request: Request) -> Result<Response, Response>
                 result: res,
                 error: None
             }),
-        Err(respErr) => Err(Response{
-            id: req_id,
-            result: None,
-            error: Some(respErr)
-        })
+        Err(err) => Err(
+            Response{
+                id: req_id,
+                result: None,
+                error: Some(err)
+            })
     }
 }
 
@@ -128,17 +133,15 @@ impl std::convert::TryFrom<Request> for SupportedMethods{
                  match value.extract(GotoDefinition::METHOD)
                  {
                     Ok((_, param)) => Ok(SupportedMethods::GotoDefinition(param)),
-                     ExtractError::JsonError(err) => Err(ExtractError(err)),
-                     _ => panic!("Unknown Error!")
+                     Err(err) => Err(err),
                  }
              },
              HoverRequest::METHOD => {
-                 let x = match value.extract(HoverRequest::METHOD)
+                 match value.extract(HoverRequest::METHOD)
                  {
-                     Ok((_, param)) => param,
-                     _ => panic!("we")
-                 };
-                 Ok(SupportedMethods::Hover(x))
+                     Ok((_, param)) => Ok(SupportedMethods::Hover(param)),
+                     Err(err) => Err(err),
+                 }
              },
              _ => Err(ExtractError::MethodMismatch(value)),
          }
