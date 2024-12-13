@@ -1,11 +1,15 @@
 use std::error::Error;
 
-use lsp_types::{GotoDefinitionParams, Hover, HoverContents, HoverParams, OneOf};
+use lsp_types::{HoverParams, Hover, HoverContents, MarkedString, HoverProviderCapability, request::HoverRequest};
+use lsp_types::{GotoDefinitionParams, request::GotoDefinition, GotoDefinitionResponse};
 use lsp_types::{
-    request::{Request as TypeRequest, GotoDefinition, HoverRequest}, GotoDefinitionResponse, InitializeParams, ServerCapabilities, HoverProviderCapability
+    request::Request as TypeRequest, Range, Location, Position, InitializeParams, ServerCapabilities, OneOf 
 };
 
-use lsp_server::{Connection, ExtractError, Message, Request, RequestId, Response, ResponseError};
+use lsp_server::{Connection, ExtractError, Message, Request, Response, ResponseError};
+
+mod notifications;
+mod documentrecords;
 
 fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
     // Note that  we must have our logging only write out to stderr.
@@ -105,8 +109,23 @@ fn handle_hover(params: HoverParams) -> Result<Option<serde_json::Value>, Respon
     let pos = params.text_document_position_params;
     let url = pos.text_document.uri;
 
+    let messager = MarkedString::String(String::from("Idiot"));
+    let hover = Hover{
+        contents: HoverContents::Scalar(messager),
+        range: None
+    };
 
-    Ok(Some(serde_json::Value::String("hej".to_string())))
+    match serde_json::to_value(hover)
+    {
+        Ok(res) => Ok(Some(res)),
+        Err(err) => Err(ResponseError{
+            code: 1,
+            message: "Det gick trasigt".to_string(),
+            data: None
+        })
+    }
+
+    //Ok(Some(serde_json::Value::String("hej".to_string())))
 }
 
 fn handle_gotodefinition(params: GotoDefinitionParams) -> Result<Option<serde_json::Value>, ResponseError>
@@ -114,8 +133,22 @@ fn handle_gotodefinition(params: GotoDefinitionParams) -> Result<Option<serde_js
     let pos = params.text_document_position_params;
     let url = pos.text_document.uri;
 
+    let go_pos_start = Position::new(0, 0);
+    let go_pos_end = Position::new(0, 4);
+
+    let resp = GotoDefinitionResponse::Scalar(Location{ uri: url, range: Range::new(go_pos_start, go_pos_end)});
+
+    match serde_json::to_value(resp)
+    {
+
+        Ok(res) => Ok(Some(res)),
+        Err(err) => Err(ResponseError{
+            code: 666,
+            message: String::from("I suck"),
+            data: None
+        })
+    }
         
-    Ok(Some(serde_json::Value::String("hej".to_string())))
 }
 
 pub enum SupportedMethods{
